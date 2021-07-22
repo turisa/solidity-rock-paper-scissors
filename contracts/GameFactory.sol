@@ -5,22 +5,23 @@ import "./Game.sol";
 
 contract GameFactory {
 
-    mapping(uint256 => Game) games;
-    uint256 nextGameIndex;
+    event GameJoined(address gameAddress);
+
+    mapping(address => Game[]) playerGames;
+    Game currentGame;
 
     constructor() {
-        nextGameIndex = 0;
+        currentGame = new Game(address(this));
     }
 
-    function getAvailableGame() external returns(address) {
-        if (nextGameIndex == 0 || games[nextGameIndex].getPlayerCount() == 2) {
-            _createGame();
+    function joinGame(uint256 secret) external payable {
+        if (currentGame.isFull()) {
+            currentGame = new Game(address(this));
         }
-        return address(games[nextGameIndex-1]);
+        currentGame.commitMove(secret, msg.value, msg.sender);
+        payable(address(currentGame)).transfer(msg.value);
+        emit GameJoined(address(currentGame));
     }
 
-    function _createGame() internal {
-        games[nextGameIndex] = new Game();
-        nextGameIndex++;
-    }
+
 }
