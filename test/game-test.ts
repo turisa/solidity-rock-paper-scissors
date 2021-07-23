@@ -1,20 +1,10 @@
 import { ethers } from 'hardhat';
-import crypto from 'crypto';
-import { step } from 'mocha-steps';
 import chai from 'chai';
 import { expect } from 'chai';
 import chaiEthersBN from 'chai-ethers-bn';
 chai.use(chaiEthersBN());
 
-import {
-  BigNumber,
-  EventFilter,
-  Contract,
-  ContractTransaction,
-  Signer,
-  utils,
-} from 'ethers';
-import { setPriority } from 'os';
+import { Contract, Signer, utils } from 'ethers';
 enum Move {
   Rock = 1,
   Paper,
@@ -31,16 +21,12 @@ const getSecret = (move: Move) => {
   return { nonce, secret };
 };
 
-const getGameAddress = async (contract: Contract) => {
-  const eventFilter = contract.filters.GameJoined();
-  const events = await contract.queryFilter(eventFilter, 'latest');
-  return events[0].args?.gameAddress;
-};
-
 describe('Game', function () {
   let alice: Signer;
   let bob: Signer;
-  let gameFactory: Contract;
+  let factory: Contract;
+  let factoryAlice: Contract;
+  let factoryBob: Contract;
 
   beforeEach(async () => {
     const accounts = await ethers.getSigners();
@@ -49,38 +35,42 @@ describe('Game', function () {
     bob = accounts[1];
 
     const GameFactory = await ethers.getContractFactory('GameFactory');
-    gameFactory = await GameFactory.deploy();
+    factory = await GameFactory.deploy();
+
+    factoryAlice = factory.connect(alice);
+    factoryBob = factory.connect(bob);
   });
 
-  it('should create one game for two players', async function () {
-    const factoryAccountAlice = gameFactory.connect(alice);
-    const factoryAccountBob = gameFactory.connect(bob);
+  it('Starts a new game', async () => {
+    const { secret } = getSecret(Move.Rock);
+    await expect(
+      factory.joinGame(secret, { value: ethers.utils.parseEther('1.0') })
+    ).to.emit(factory, 'GameJoined');
+  });
 
-    const { nonce: nonceAlice, secret: secretAlice } = getSecret(Move.Rock);
-    const { nonce: nonceBob, secret: secretBob } = getSecret(Move.Scissors);
+  it('Rewards the winner', async () => {
+    const { nonce: nonceAlice, secret: secretAlice } = getSecret(1);
+    const { nonce: nonceBob, secret: secretBob } = getSecret(2);
 
-    await factoryAccountAlice.joinGame(secretAlice, {
+    await factoryAlice.joinGame(secretAlice, {
       value: ethers.utils.parseEther('1.0'),
     });
-    await factoryAccountBob.joinGame(secretBob, {
+    await factoryBob.joinGame(secretBob, {
       value: ethers.utils.parseEther('1.0'),
     });
 
-    const eventFilterAlice = factoryAccountAlice.filters.GameJoined();
-    const eventsAlice = await factoryAccountAlice.queryFilter(
+    const eventFilterAlice = factoryAlice.filters.GameJoined();
+    const eventsAlice = await factoryAlice.queryFilter(
       eventFilterAlice,
       'latest'
     );
-    const eventFilterBob = factoryAccountAlice.filters.GameJoined();
-    const eventsBob = await factoryAccountAlice.queryFilter(
-      eventFilterBob,
-      'latest'
-    );
+    const eventFilterBob = factoryBob.filters.GameJoined();
+    const eventsBob = await factoryBob.queryFilter(eventFilterBob, 'latest');
 
     const gameAddressAlice = eventsAlice[0].args?.gameAddress;
     const gameAddressBob = eventsBob[0].args?.gameAddress;
 
-    chai.expect(gameAddressAlice).to.equal(gameAddressBob);
+    expect(gameAddressAlice).to.equal(gameAddressBob);
 
     const Game = await ethers.getContractFactory('Game');
     const game = Game.attach(gameAddressAlice);
@@ -91,15 +81,56 @@ describe('Game', function () {
     const aliceBalanceBefore = await alice.getBalance();
     const bobBalanceBefore = await bob.getBalance();
 
-    await gameAccountAlice.revealMove(Move.Rock, nonceAlice);
-    await gameAccountBob.revealMove(Move.Scissors, nonceBob);
+    await gameAccountAlice.revealMove(1, nonceAlice);
+    await gameAccountBob.revealMove(2, nonceBob);
 
     const aliceBalanceAfter = await alice.getBalance();
     const bobBalanceAfter = await bob.getBalance();
 
-    expect(aliceBalanceAfter).to.be.a.bignumber.greaterThan(aliceBalanceBefore);
-    expect(bobBalanceAfter).to.be.a.bignumber.lessThan(bobBalanceBefore);
+    expect(bobBalanceAfter).to.be.a.bignumber.greaterThan(bobBalanceBefore);
+    expect(aliceBalanceAfter).to.be.a.bignumber.lessThan(aliceBalanceBefore);
   });
 
-  it('should join an existing game', async function () {});
+  it('Rewards both players if result is draw', async () => {
+    const { nonce: nonceAlice, secret: secretAlice } = getSecret(1);
+    const { nonce: nonceBob, secret: secretBob } = getSecret(1);
+
+    await factoryAlice.joinGame(secretAlice, {
+      value: ethers.utils.parseEther('1.0'),
+    });
+    await factoryBob.joinGame(secretBob, {
+      value: ethers.utils.parseEther('1.0'),
+    });
+
+    const eventFilterAlice = factoryAlice.filters.GameJoined();
+    const eventsAlice = await factoryAlice.queryFilter(
+      eventFilterAlice,
+      'latest'
+    );
+    const eventFilterBob = factoryBob.filters.GameJoined();
+    const eventsBob = await factoryBob.queryFilter(eventFilterBob, 'latest');
+
+    const gameAddressAlice = eventsAlice[0].args?.gameAddress;
+    const gameAddressBob = eventsBob[0].args?.gameAddress;
+
+    expect(gameAddressAlice).to.equal(gameAddressBob);
+
+    const Game = await ethers.getContractFactory('Game');
+    const game = Game.attach(gameAddressAlice);
+
+    const gameAccountAlice = game.connect(alice);
+    const gameAccountBob = game.connect(bob);
+
+    const aliceBalanceBefore = await alice.getBalance();
+    const bobBalanceBefore = await bob.getBalance();
+
+    await gameAccountAlice.revealMove(1, nonceAlice);
+    await gameAccountBob.revealMove(1, nonceBob);
+
+    const aliceBalanceAfter = await alice.getBalance();
+    const bobBalanceAfter = await bob.getBalance();
+
+    expect(bobBalanceAfter).to.be.a.bignumber.greaterThan(bobBalanceBefore);
+    expect(aliceBalanceAfter).to.be.a.bignumber.greaterThan(aliceBalanceBefore);
+  });
 });
