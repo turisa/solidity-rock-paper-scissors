@@ -104,7 +104,7 @@ contract Game {
             payable(player1).transfer(address(this).balance);
         } else {
             playerResult[player1] = Result.Loss;
-            playerResult[player2] = Result.Draw;
+            playerResult[player2] = Result.Win;
             payable(player2).transfer(address(this).balance);
             
         }
