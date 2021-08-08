@@ -7,7 +7,10 @@ contract GameFactory {
 
     event GameJoined(address gameAddress);
 
+    // Games of each player
     mapping(address => Game[]) playerGames;
+    
+    // Joinable game
     Game currentGame;
 
     constructor() {
@@ -19,6 +22,8 @@ contract GameFactory {
         _;
     }
 
+    // Join a game by paying and committing a secret. 
+    // See `commitMove` of contract Game for details.
     function joinGame(uint256 secret) external payable onlyPositiveStake {
         _createGame();
         currentGame.commitMove(secret, msg.value, msg.sender);
@@ -26,12 +31,14 @@ contract GameFactory {
         emit GameJoined(address(currentGame));
     }
 
+    // Create a new joinable game.
     function _createGame() private {
         if (currentGame.isFull()) {
             currentGame = new Game(address(this));
         }
     }
 
+    // Return games of given player.
     function getGames(address player) external view returns(Game[] memory) {
         return playerGames[player];
     }
