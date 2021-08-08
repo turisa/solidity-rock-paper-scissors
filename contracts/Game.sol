@@ -7,17 +7,25 @@ contract Game is ReentrancyGuard {
 
     event Received(address, uint);
 
+    // Defines different moves. 
     enum Move {Default, Rock, Paper, Scissors}
 
+    // Factory address.
     address factory;
+
+    // Player addresses.
     address player1;
     address player2;
 
     address lastPlayerRevealed;
+
+    // Stores the timestamp of when the move was last revealed.
     uint256 lastTimeRevealed;
     
+    // True when both players reveal their move.
     bool finished;
-    
+
+    // Mappings that store user info
     mapping (address=>Move) move;
     mapping (address=>uint256) secret;
     mapping (address=>uint256) stake;
