@@ -47,12 +47,17 @@ contract Game is ReentrancyGuard {
         _;
     }
 
+    // Commit the secret. Can only be called by the factory.
+    // The secret should be calculated as follows:
+    //      secret = uint256(keccak256(abi.encodePacked(move, nonce)));
+    // See `revealMove` for details.
     function commitMove(uint256 secret_, uint256 stake_, address player) external onlyFactory {
         _setPlayer(player);
         stake[player] = stake_;
         secret[player] = secret_;
     }
 
+    // Reveal the secret by submitting the move and the nonce. Can only be called by one of the players.
     function revealMove(uint8 move_, uint256 nonce) external onlyPlayer onlyRevealOnce {
         uint256 secret_ = uint256(keccak256(abi.encodePacked(move_, nonce)));
         require(secret_ == secret[msg.sender], "Move must not change");
@@ -67,6 +72,7 @@ contract Game is ReentrancyGuard {
         }
     }    
     
+    // Claim the reward.
     function claimReward() external nonReentrant {
         if (block.timestamp - lastTimeRevealed >= 24 hours && !finished) {      
             reward[lastPlayerRevealed] = stake[player1] + stake[player2];
@@ -75,14 +81,17 @@ contract Game is ReentrancyGuard {
         payable(msg.sender).transfer(reward[msg.sender]);
     }
 
+    // View function to see if the game is full.
     function isFull() public view returns(bool) {
         return player1 != address(0) && player2 != address(0);
     }
 
+    // View function to see if the game is finished.
     function isFinished() public view returns(bool) {
         return finished;
     }
 
+    // Update the move of the player.
     function _setMove(address player, uint8 move_) private {
         if (move_ <= 2) {
             move[player] = Move(move_);
@@ -99,6 +108,7 @@ contract Game is ReentrancyGuard {
         }
     }
 
+    // Update the rewards.
     function _evaluate() private {
         if (move[player1] == move[player2]) {
             reward[player1] = stake[player1];
