@@ -108,6 +108,7 @@ contract Game is ReentrancyGuard {
         }
     }
 
+    // Update the player address.
     function _setPlayer(address player) private {
         if (player1 == address(0)) {
             player1 = player;
