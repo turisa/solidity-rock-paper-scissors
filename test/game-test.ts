@@ -41,7 +41,7 @@ describe('Game', function () {
     factoryBob = factory.connect(bob);
   });
 
-  it('Starts a new game', async () => {
+  it('Creates a new game', async () => {
     const { secret } = getSecret(Move.Rock);
     await expect(
       factory.joinGame(secret, { value: ethers.utils.parseEther('1.0') })
@@ -84,6 +84,9 @@ describe('Game', function () {
     await gameAccountAlice.revealMove(1, nonceAlice);
     await gameAccountBob.revealMove(2, nonceBob);
 
+    await gameAccountAlice.claimReward();
+    await gameAccountBob.claimReward();
+
     const aliceBalanceAfter = await alice.getBalance();
     const bobBalanceAfter = await bob.getBalance();
 
@@ -91,7 +94,7 @@ describe('Game', function () {
     expect(aliceBalanceAfter).to.be.a.bignumber.lessThan(aliceBalanceBefore);
   });
 
-  it('Rewards both players if result is draw', async () => {
+  it('Rewards both players', async () => {
     const { nonce: nonceAlice, secret: secretAlice } = getSecret(1);
     const { nonce: nonceBob, secret: secretBob } = getSecret(1);
 
@@ -126,6 +129,9 @@ describe('Game', function () {
 
     await gameAccountAlice.revealMove(1, nonceAlice);
     await gameAccountBob.revealMove(1, nonceBob);
+
+    await gameAccountAlice.claimReward();
+    await gameAccountBob.claimReward();
 
     const aliceBalanceAfter = await alice.getBalance();
     const bobBalanceAfter = await bob.getBalance();
