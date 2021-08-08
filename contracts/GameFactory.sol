@@ -23,7 +23,7 @@ contract GameFactory {
     }
 
     // Join a game by paying and committing a secret. 
-    // See `commitMove` of contract Game for details.
+    // See `commitMove` of contract Game for details on how to create a secret.
     function joinGame(uint256 secret) external payable onlyPositiveStake {
         _createGame();
         currentGame.commitMove(secret, msg.value, msg.sender);
